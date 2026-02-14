@@ -368,18 +368,33 @@ function sendMessage(){
 	// subtle appear animations
 	setTimeout(()=>{ u.classList.add('appear'); bwrap.classList.add('appear'); }, 8);
 
-	// Try OpenAI backend first
-	fetch('http://localhost:3001/chat', {
+	// Gemini API direct call from frontend
+	const GEMINI_API_KEY = (typeof importMeta !== 'undefined' && importMeta.env && importMeta.env.GEMINI_API_KEY) ? importMeta.env.GEMINI_API_KEY : (window.GEMINI_API_KEY || '');
+	const GEMINI_MODEL = 'gemini-3-flash-preview';
+	const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+
+	if (!GEMINI_API_KEY) {
+		typeEffect(b, 'AI not available: API key missing.', () => { chatbox.scrollTop = chatbox.scrollHeight; });
+		input.value = '';
+		return;
+	}
+
+	fetch(GEMINI_URL, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ message: txt })
+		body: JSON.stringify({
+			contents: [
+				{ parts: [ { text: txt } ] }
+			]
+		})
 	})
 		.then(res => res.json())
 		.then(data => {
-			let reply = data.reply || 'Sorry, no response.';
-			typeEffect(b, reply, () => {
-				chatbox.scrollTop = chatbox.scrollHeight;
-			});
+			let reply = 'Sorry, no response.';
+			if (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0].text) {
+				reply = data.candidates[0].content.parts[0].text;
+			}
+			typeEffect(b, reply, () => { chatbox.scrollTop = chatbox.scrollHeight; });
 		})
 		.catch(() => {
 			// fallback to local KB
